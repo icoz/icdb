@@ -4,10 +4,10 @@
 # License: GPL v3                #
 # -------------------------------#
 
-if __name__ == "__main__" and __package__ is None:
-    __package__ = "icdb.memcache"
+# if __name__ == "__main__" and __package__ is None:
+#     __package__ = "icdb.memcache"
 
-from icdb.storage import Storage
+from icdb.storage.storage import Storage
 from datetime import datetime, timedelta
 import os
 

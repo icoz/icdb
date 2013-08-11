@@ -1,1 +1,2 @@
-from storage import Storage
+# from storage import Storage
+__all__  = ['storage']

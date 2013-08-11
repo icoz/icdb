@@ -4,101 +4,118 @@
 # License: GPL v3                #
 # -------------------------------#
 
-'''
-
-'''
-
-from storage import Storage
+from icdb.storage.storage import Storage
 from datetime import datetime, timedelta
 import os
 
 
-class Cache(object):
+class CacheTTL(object):
 
-    """Cache is simple mem-storage for key-value, based on dict()"""
+    """
+    CacheMW is mem-storage for key-value, with limit on count of stored key-values
+    - based on dict()
+    - last time used (LTU) saves with value
+    - on set check limit and if exceed delete most old LTU in cache
+    """
 
-    def __init__(self, fname=None, ttl_count_limit=None):
-        super(Cache, self).__init__()
+    def __init__(self, filename=None, limit=1000, on_limit_cleanup=100):
+        '''
+        if filename is passed, then try to load from file
+        limit by default = 1000, limits count of pairs(key,value) in cache
+        on_limit_cleanup = 100, how much records we must delete in cache on limit
+        '''
+        # data is dict(key: tuple(value, ltu), key: tuple(value, ltu) ...)
         self.data = dict()
-        self.ttl = dict()
-        self.filename = fname
-        self.limit = ttl_count_limit
-        if fname is not None:
-            if os.path.exists(fname):
-                self.load()
+        self.limit = int(limit)
+        self.on_limit_cleanup = int(on_limit_cleanup)
+        if filename is not None:
+            if os.path.exists(filename):
+                self.load(filename)
 
     def get(self, key):
+        '''
+        Get value by key
+        If value is timeouted 'None' will be returned
+        '''
         if type(key) is not str:
             key = str(key)
+        # find value for key
         try:
-            val = self.data[key]
+            val = self.data[key][0]
+            self.data[key][1] = datetime.utcnow()
         except KeyError:
             return None
-        try:
-            ttl = self.ttl[key]
-        except KeyError:
-            pass
-        else:
-            print('get: has ttl')
-            if type(ttl) is datetime:
-                if ttl < datetime.utcnow():
-                    print('get: ttl expired')
-                    val = None
-                    del self.data[key]
-                    del self.ttl[key]
         return val
 
-    def set(self, key, value, ttl=None):
+    def set(self, key, value):
+        '''
+        Set key-value
+        If exceeds limit, then kill most old LTU
+        '''
         if type(key) is not str:
             key = str(key)
-        self.data[key] = value
-        if ttl is None:
-            try:
-                del self.ttl[key]
-            except KeyError:
-                pass
-        if ttl is not None:
-            if self.limit is not None:
-                if len(self.ttl) > self.limit:
-                    self.cleanup()
-            if type(ttl) is timedelta:
-                self.ttl[key] = datetime.utcnow() + ttl
+        self.data[key] = (value, datetime.utcnow())
+        if len(self.data) > self.limit:
+            self.cleanup()
 
     def delete(self, key):
+        '''
+        Delete value (and LTU) for given key-value
+        '''
         if type(key) is not str:
             key = str(key)
         try:
-            # val = self.data[key]
             del self.data[key]
-            del self.ttl[key]
         except KeyError:
             pass
 
-    def save(self, fname=None):
-        fn = self.filename
-        if fname is not None:
-            fn = fname
-        if fn is not None:
-            with Storage(fn) as s:
-                for k in self.data:
-                    if k not in self.ttl:
-                        s.set_unsafe(k, self.data[k])
-
-    def load(self, fname=None):
-        fn = self.filename
-        if fname is not None:
-            fn = fname
-        if fn is not None:
-            with Storage(fn) as s:
-                self.data = s.get_dict()
-
     def cleanup(self):
-        key_to_del = []
-        for k in self.ttl:
-            v = self.ttl[k]
-            if type(v) is datetime:
-                if v < datetime.utcnow():
-                    del self.data[k]
-                    key_to_del.append(k)
-        for k in key_to_del:
-            del self.ttl[k]
+        '''
+        Cleanup values with most old LTU
+        count for delete can be set by defining on_limit_cleanup in __init__
+        '''
+        # get ltu and keys
+        ltu_key = dict()
+        ltu_sort = []
+        for k in self.data:
+            # use 'LTU' as key, 'key' as value
+            ltu = self.data[k][1]
+            ltu_key[ltu] = k
+            ltu_sort.append(ltu)
+        # sort ltu
+        ltu_sort = sorted(ltu_sort)
+        # get top100 and kill 'em
+        # we must left in cache only (limit-on_limit_cleanup) values
+        # so we must kill 'count' entries
+        count = len(self.data) - (self.limit - self.on_limit_cleanup)
+        for i in range(count):
+            del self.data[ltu_sort[i]]
+
+    def save(self, fname=None):
+        '''
+        Save cache to file 'fname'
+        If fname is None, None will be saved. ;-)
+        '''
+        if fname is not None:
+            with Storage(fname) as s:
+                for k in self.data:
+                    s.set_unsafe(k, self.data[k][0])
+
+    def load(self, fname=None, append=False):
+        '''
+        Load cache from file 'fname'
+        Current cache will be removed (by default), to append data from file to cache, set param 'append=True'
+        If fname is None, None will be loaded. ;-) But current cache stays alive.
+        '''
+        if fname is not None:
+            with Storage(fname) as s:
+                data = s.get_dict()
+            # if not append, then delete current data
+            if not append:
+                del self.data
+                self.data = dict()
+            for k in data:
+                self.data[k] = (data[k], datetime.utcnow())
+            # cleanup loaded key-values if exceeds limit
+            if len(self.data) > self.limit:
+                self.cleanup()

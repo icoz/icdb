@@ -4,10 +4,7 @@
 # License: GPL v3                #
 # -------------------------------#
 
-if __name__ == "__main__" and __package__ is None:
-    __package__ = "icdb.memcache"
-
-from icdb.storage import Storage
+from icdb.storage.storage import Storage
 from datetime import datetime, timedelta
 import os
 
@@ -30,7 +27,6 @@ class CacheTTL(object):
         if filename is passed, then try to load from file
         limit by default = 1000
         '''
-        super(Cache, self).__init__()
         self.data = dict()
         self.ttl = dict()
         self.limit = int(limit)
