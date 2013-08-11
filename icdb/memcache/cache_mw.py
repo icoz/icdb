@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import os
 
 
-class CacheTTL(object):
+class CacheMW(object):
 
     """
     CacheMW is mem-storage for key-value, with limit on count of stored key-values
@@ -54,7 +54,7 @@ class CacheTTL(object):
         '''
         if type(key) is not str:
             key = str(key)
-        self.data[key] = (value, datetime.utcnow())
+        self.data[key] = [value, datetime.utcnow()]
         if len(self.data) > self.limit:
             self.cleanup()
 
@@ -89,7 +89,7 @@ class CacheTTL(object):
         # so we must kill 'count' entries
         count = len(self.data) - (self.limit - self.on_limit_cleanup)
         for i in range(count):
-            del self.data[ltu_sort[i]]
+            del self.data[ltu_key[ltu_sort[i]]]
 
     def save(self, fname=None):
         '''

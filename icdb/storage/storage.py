@@ -73,7 +73,7 @@ class Storage(object):
 
     def set(self, key, value):
         ''' create or update data in storage '''
-        self.__delete_by_hash__(hash)
+        self.__delete_by_hash__(hash_md5(key))
         # TODO tests for time used. To run compress
         self.set_unsafe(key, value)
         pass
@@ -97,16 +97,16 @@ class Storage(object):
                     yield (pos, hash, flags, key_size, val_size)
                 pos = pos + 1
 
-    def get_tuple(self):
+    def get_list(self):
         ''' get all pairs from storage '''
         arr = []
         with open(self.filename, 'rb') as fin:
             b = fin.read()
             for (pos, hs, flags, key_size, val_size) in self.records():
                 key = b[pos + 24 + 2 + 2 + 4:
-                        pos + 24 + 2 + 2 + 4 + key_size]
+                        pos + 24 + 2 + 2 + 4 + key_size].decode()
                 value = b[pos + 24 + 2 + 2 + 4 + key_size:
-                          pos + 24 + 2 + 2 + 4 + key_size + val_size]
+                          pos + 24 + 2 + 2 + 4 + key_size + val_size].decode
                 arr.append((key, value))
         return arr
 
@@ -117,9 +117,9 @@ class Storage(object):
             b = fin.read()
             for (pos, hs, flags, key_size, val_size) in self.records():
                 key = b[pos + 24 + 2 + 2 + 4:
-                        pos + 24 + 2 + 2 + 4 + key_size]
+                        pos + 24 + 2 + 2 + 4 + key_size].decode()
                 value = b[pos + 24 + 2 + 2 + 4 + key_size:
-                          pos + 24 + 2 + 2 + 4 + key_size + val_size]
+                          pos + 24 + 2 + 2 + 4 + key_size + val_size].decode()
                 # arr.append((key, value))
                 arr[key] = value
         return arr
@@ -150,9 +150,9 @@ class Storage(object):
         if type(key) is not str:
             key = str(key)
         h = hash_md5(key)
-        return self.get_by_hash(h)
+        return self.__get_by_hash__(h)
 
-    def get_by_hash(self, hash):
+    def __get_by_hash__(self, hash):
         ''' returns value by hash. On fail returns None '''
         value = None
         for (pos, hs, flags, key_size, val_size) in self.records():
@@ -167,7 +167,7 @@ class Storage(object):
                 #     b = fin.read()
                 b = self.binary_cache
                 value = b[pos + 24 + 2 + 2 + 4 + key_size:
-                          pos + 24 + 2 + 2 + 4 + key_size + val_size]
+                          pos + 24 + 2 + 2 + 4 + key_size + val_size].decode()
         return value
                 # return value
         # return None
