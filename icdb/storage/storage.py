@@ -28,7 +28,7 @@ from os import rename, remove
 def hash_md5(info):
     ''' for hashing using MD5 '''
     m = md5()
-    m.update(info.encode())
+    m.update(str(info).encode())
     return m.digest()
 
 
