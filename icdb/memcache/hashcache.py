@@ -36,7 +36,7 @@ class HashCache(object):
             key = str(key)
         hash = hash_md5(key)
         try:
-            val = self.__get__(hash)[3]
+            val = self.__get__(hash)[2]
         except KeyError:
             return None
         return val
@@ -53,7 +53,7 @@ class HashCache(object):
             key = str(key)
         hash = hash_md5(key)
         try:
-            self.__del__(hash, key)
+            self.__delete__(hash, key)
         except KeyError:
             pass
 
@@ -73,14 +73,16 @@ class HashCache(object):
 
     def __get__(self, hash):
         def search(begin, end):
+            # print('hs=%s, he=%s, h=%s' % (self.ht[begin][0], self.ht[end][0], hash))
             if end - begin < 2:
-                if self.ht[begin][0] = hash:
+                if self.ht[begin][0] == hash:
                     return self.ht[begin]
-                if self.ht[end][0] = hash:
+                if self.ht[end][0] == hash:
                     return self.ht[end]
                 raise KeyError
-            idx = int((end - begin) / 2)
-            if self.ht[idx][0] = hash:
+            idx = int(begin + (end - begin) / 2)
+            # print('b=%s, idx=%s, e=%s'%(begin,idx,end))
+            if self.ht[idx][0] == hash:
                 return self.ht[idx]
             if hash < self.ht[idx][0]:
                 return search(begin, idx)
@@ -93,10 +95,10 @@ class HashCache(object):
         if hash > self.ht[self.ht_count - 1][0]:
             raise KeyError
         # search and return
-        return search(hash, 0, self.ht_count - 1)
+        return search(0, self.ht_count - 1)
         pass
 
-    def __del__(self, hash):
+    def __delete__(self, hash):
         tp = self.__get__(hash)
         self.ht.remove(tp)
         self.ht_count = self.ht_count - 1
