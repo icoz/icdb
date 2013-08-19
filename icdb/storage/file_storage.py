@@ -26,7 +26,7 @@ Header:
   reserved, 4 byte
   records, (records count)*sizeof(Record), sorted by hash
 Record:
-  hash, 16 bytes, md5(key)
+  # hash, 16 bytes, md5(key)
   key_offset, 4 bytes
   key_size, 4 bytes = count of bytes
   value_offset, 4 bytes = count of blocks(256-bytes) to skip
@@ -53,6 +53,7 @@ Record:
 from hashlib import md5
 import struct
 from os import rename, remove
+from icdb.memcache.hashcache import HashCache
 
 
 def hash_md5(info):
@@ -68,10 +69,10 @@ class FileStorage(object):
   def __init__(self, filename='test.icdb'):
     # super(FileStorage, self).__init__()
     self.filename = filename
+    self.index = HashCache()
     self.fout_value = open(filename+'.value','ab')
 
   def set(self,key,value):
-    # get hash
     # write value-file
     # write key-file
     # update index
@@ -85,6 +86,8 @@ class FileStorage(object):
     pass
 
   def delete(self,key):
+    # find record in file
+    # update flag
     pass
 
   def compress(self):
@@ -94,4 +97,7 @@ class FileStorage(object):
     pass
 
   def update_index(self):
+    pass
+
+  def save_index(self):
     pass
