@@ -1,6 +1,7 @@
-from icdb.storage.storage import Storage
+#from icdb.storage.storage import Storage
 from icdb.memcache.cache import Cache
 from math import sin, pi
+from icdb.storage.file_storage import FileStorage
 
 # with Storage('sin.icdb') as s:
 #      for i in range(100000):
@@ -30,3 +31,11 @@ for k in c.data:
 if len(c2.data) > 0:
     print('In c2 some data has left...')
     print(c2.data)
+
+fs = FileStorage('my.icdb')
+fs.set("123", "123 ok")
+fs.set("2345632", "vnesvk fnvksnf v")
+fs.set("sldf,3", "kldsnf snfvdnsfk vnsdf")
+print(fs.get("123"))
+print(fs.get("2345632"))
+
