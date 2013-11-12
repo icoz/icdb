@@ -63,7 +63,7 @@ class Storage(object):
         pass
 
     def set_unsafe(self, key, value):
-        ''' append data in storage. NOTE! if there is key, may be duplicates '''
+        """ append data in storage. NOTE! if there is key, may be duplicates """
         if type(key) is not str:
             key = str(key)
         if type(value) is not str:
@@ -72,14 +72,14 @@ class Storage(object):
         pass
 
     def set(self, key, value):
-        ''' create or update data in storage '''
+        """ create or update data in storage """
         self.__delete_by_hash__(hash_md5(key))
         # TODO tests for time used. To run compress
         self.set_unsafe(key, value)
         pass
 
     def records(self):
-        ''' internal. Generator for records '''
+        """ internal. Generator for records """
         if 'binary_cache' not in self.__dict__:
             with open(self.filename, 'rb') as fin:
                 self.binary_cache = fin.read()  # read all file
@@ -98,7 +98,7 @@ class Storage(object):
                 pos = pos + 1
 
     def get_list(self):
-        ''' get all pairs from storage '''
+        """ get all pairs from storage """
         arr = []
         with open(self.filename, 'rb') as fin:
             b = fin.read()
@@ -106,7 +106,7 @@ class Storage(object):
                 key = b[pos + 24 + 2 + 2 + 4:
                         pos + 24 + 2 + 2 + 4 + key_size].decode()
                 value = b[pos + 24 + 2 + 2 + 4 + key_size:
-                          pos + 24 + 2 + 2 + 4 + key_size + val_size].decode
+                          pos + 24 + 2 + 2 + 4 + key_size + val_size].decode()
                 arr.append((key, value))
         return arr
 
