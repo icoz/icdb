@@ -31,7 +31,7 @@ class HashCache(object):
         self.ht = list()
         self.ht_count = 0
 
-    def get(self, key):
+    def __getitem__(self, key):
         if type(key) is not str:
             key = str(key)
         hash = hash_md5(key)
@@ -41,7 +41,7 @@ class HashCache(object):
             return None
         return val
 
-    def set(self, key, value):
+    def __setitem__(self, key, value):
         if type(key) is not str:
             key = str(key)
         # create or update?
@@ -53,7 +53,7 @@ class HashCache(object):
             key = str(key)
         hash = hash_md5(key)
         try:
-            self.__delete__(hash, key)
+            self.__delete__(hash)
         except KeyError:
             pass
 
@@ -88,6 +88,9 @@ class HashCache(object):
                 return search(begin, idx)
             else:
                 return search(idx, end)
+        # if empty
+        if self.ht_count == 0:
+            raise KeyError
         # get first
         if hash < self.ht[0][0]:
             raise KeyError
