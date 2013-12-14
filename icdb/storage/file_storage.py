@@ -106,32 +106,13 @@ class FileStorage(object):
         # find in index
         key_offset, value_offset, value_size = self.__get_from_index__(key)
         if key_offset is None:
+            # if not in index, then search on disk
             for flags, key_size, value_offset, value_size, k, key_offset in self.__keys__():
                 if k == key:
                     break
                     # if no such key in key-file, then return None
             if k != key:
                 return None
-        with open(self.filename + '.value', 'rb') as vfile:
-            vfile.seek(value_offset * 256)
-            value = vfile.read(value_size)
-        return value.decode()
-        # old
-        index_info = self.index[key]
-        # if found return data in index
-        value_offset = 0
-        value_size = 0
-        k = key
-        if index_info is not None:
-            key_offset, value_offset, value_size = struct.unpack("iii", index_info)
-        # if not found then full search in
-        else:
-            for flags, key_size, value_offset, value_size, k, key_offset in self.__keys__():
-                if k == key:
-                    break
-                    # if no such key in key-file, then return None
-        if k != key:
-            return None
         with open(self.filename + '.value', 'rb') as vfile:
             vfile.seek(value_offset * 256)
             value = vfile.read(value_size)
@@ -149,6 +130,9 @@ class FileStorage(object):
         pass
 
     def compress(self):
+        """
+        Compress key and data files, removes deleted items
+        """
         # create new value and key files
         nv = open(self.filename + ".nvalue", wb)
         nk = open(self.filename + ".nkey", wb)
@@ -157,9 +141,9 @@ class FileStorage(object):
         #   if not deleted save old value to new value
         for flags, key_size, value_offset, value_size, key, key_offset in self.__keys__():
             if flags == 0:
-                #   get key record
+                # get key record
 
-                #   save key record
+                # save key record
                 # get value record
                 # set value record
                 pass
@@ -196,10 +180,10 @@ class FileStorage(object):
                 pos += 1
 
     def __save_value_record__(self, value):
-        """ saves value to file
+        """ internal
+        Saves value to file
         return: value_offset and value_size
         """
-        #value_type = type(value)
         value = str(value)
         # write value-file
         self.value_file.seek(0, SEEK_END)
@@ -208,7 +192,6 @@ class FileStorage(object):
         # if file suddenly was corrupted then fill till 256 bytes
         for i in range(align):
             self.value_file.write(b'\x00')
-            #self.value_file.write(value_type)
         value_offset = int(self.value_file.tell() / 256)
         self.value_file.write(value.encode())
         align = 256 - len(value) % 256
@@ -219,7 +202,8 @@ class FileStorage(object):
         return value_offset, len(value)
 
     def __save_key_record__(self, key, value_offset, value_size):
-        """ saves key-record to file
+        """ internal
+        Saves key-record to file
         return: key_offset
         """
         key = str(key)
@@ -235,7 +219,9 @@ class FileStorage(object):
 
     def __get_key_record__(self, key_offset):
         """
+        Reads key record from file from key_offset.
         Returns (key, flags, value_offset, value_size)
+        If none found, then returns (None, ...)
         """
         with open(self.filename + '.key', 'rb') as f_key:
             # get file length
@@ -258,14 +244,14 @@ class FileStorage(object):
                 raise IndexError
 
     def __put_to_index__(self, key, key_offset, value_offset, value_size):
-        """
-        puts to index (key_offset, value_offset, value_size)-struct for 'key'
+        """ internal
+        Puts to index (key_offset, value_offset, value_size)-struct for 'key'
         """
         self.index[key] = struct.pack('iii', key_offset, value_offset, value_size)
 
     def __get_from_index__(self, key):
-        """
-        returns (key_offset, value_offset, value_size)-struct for 'key' if found
+        """ internal
+        Returns (key_offset, value_offset, value_size)-struct for 'key' if found
         if not found returns None, None, None
         """
         index_info = self.index[key]
@@ -277,7 +263,7 @@ class FileStorage(object):
 
     def load_index(self):
         """
-        load previously saved index
+        Load previously saved index
         """
         with open(self.filename + ".idx", 'rb') as idx:
             magic = idx.read(4)
@@ -292,7 +278,8 @@ class FileStorage(object):
                 self.__put_to_index__(key, k_off, v_off, v_size)
 
     def save_index(self):
-        """ Save index to file
+        """
+        Save index to file
         You can now just load index, not rebuild it on start
         """
         with open(self.filename + ".idx", 'wb') as idx:
@@ -308,8 +295,6 @@ class FileStorage(object):
                 rec = struct.pack('iiii', key_offset, len(key), value_offset, value_size)
                 idx.write(rec)
 
-    def fix_key_file(self):
-        pass
 
 
 class FileStorageTest(TestCase):
