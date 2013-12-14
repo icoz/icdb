@@ -1,7 +1,9 @@
 #from icdb.storage.storage import Storage
-from icdb.memcache.cache import Cache
 from math import sin, pi
+
+from icdb.memcache.cache import Cache
 from icdb.storage.file_storage import FileStorage
+
 
 # with Storage('sin.icdb') as s:
 #      for i in range(100000):
@@ -33,9 +35,13 @@ if len(c2.data) > 0:
     print(c2.data)
 
 fs = FileStorage('my.icdb')
-fs.set("123", "123 ok")
-fs.set("2345632", "vnesvk fnvksnf v")
-fs.set("sldf,3", "kldsnf snfvdnsfk vnsdf")
-print(fs.get("123"))
-print(fs.get("2345632"))
+fs["123"] = "123 ok"
+fs["2345632"] = "vnesvk fnvksnf v"
+fs["sldf,3"] = "kldsnf snfvdnsfk vnsdf"
+print(fs["123"])
+print(fs["2345632"])
 
+for i in range(COUNT):
+    x = str(i / 180 * pi)
+    y = sin(float(x))
+    fs[x] = y
