@@ -53,6 +53,7 @@ Record:
 
 from hashlib import md5
 from io import SEEK_END, SEEK_SET
+import os
 import struct
 from unittest import TestCase
 from icdb.memcache.hashcache import HashCache
@@ -84,6 +85,8 @@ class FileStorage(object):
     def __del__(self):
         self.value_file.close()
         self.key_file.close()
+        self.build_index()
+        self.save_index()
 
     def __setitem__(self, key, value):
         value_offset, value_size = self.__save_value_record__(value)
@@ -99,17 +102,38 @@ class FileStorage(object):
 
     def __getitem__(self, key):
         # find in index
+        key_offset, value_offset, value_size = self.__get_from_index__(key)
+        if key_offset is None:
+            for flags, key_size, value_offset, value_size, k, key_offset in self.__keys__():
+                if k == key:
+                    break
+                    # if no such key in key-file, then return None
+            if k != key:
+                return None
+        with open(self.filename + '.value', 'rb') as vfile:
+            vfile.seek(value_offset * 256)
+            value = vfile.read(value_size)
+        return value.decode()
+        # old
         index_info = self.index[key]
-        # if found return data
+        # if found return data in index
+        value_offset = 0
+        value_size = 0
+        k = key
         if index_info is not None:
-            value_len, value_offset, key_offset = struct.unpack("iii", index_info)
-            with open(self.filename + '.value', 'rb') as vfile:
-                vfile.seek(value_offset * 256)
-                value = vfile.read(value_len)
-            return value.decode()
-        # if not found return None
+            key_offset, value_offset, value_size = struct.unpack("iii", index_info)
+        # if not found then full search in
         else:
+            for flags, key_size, value_offset, value_size, k, key_offset in self.__keys__():
+                if k == key:
+                    break
+                    # if no such key in key-file, then return None
+        if k != key:
             return None
+        with open(self.filename + '.value', 'rb') as vfile:
+            vfile.seek(value_offset * 256)
+            value = vfile.read(value_size)
+        return value.decode()
 
     def delete(self, key):
         # find in index
@@ -162,7 +186,7 @@ class FileStorage(object):
                 pos = b.find(self.KEY_MAGIC_NUMBER, pos)
                 if pos == -1:
                     break
-                flags, key_size, value_offset, value_size = struct.unpack_from('iiii', b, pos + 8)
+                key_size, flags, value_offset, value_size = struct.unpack_from('iiii', b, pos + 8)
                 key = b[pos + 24:pos + 24 + key_size].decode()
                 key_offset = pos + 24
                 if flags == 0:
@@ -179,11 +203,11 @@ class FileStorage(object):
         self.value_file.seek(0, SEEK_END)
         value_offset = self.value_file.tell() / 256
         align = self.value_file.tell() - int(value_offset) * 256
-        value_offset = int(value_offset)
         # if file suddenly was corrupted then fill till 256 bytes
         for i in range(align):
             self.value_file.write(b'\x00')
             #self.value_file.write(value_type)
+        value_offset = int(self.value_file.tell() / 256)
         self.value_file.write(value.encode())
         align = 256 - len(value) % 256
         # if len(value) % 256 != 0, then fill end
@@ -201,7 +225,7 @@ class FileStorage(object):
         self.key_file.seek(0, SEEK_END)
         key_offset = self.key_file.tell()
         self.key_file.write(self.KEY_MAGIC_NUMBER)
-        key_struct = struct.pack('iiii', 0, len(key), value_size, value_offset)
+        key_struct = struct.pack('iiii', len(key), 0, value_offset, value_size)
         self.key_file.write(key_struct)
         self.key_file.write(key.encode())
         self.key_file.flush()
@@ -221,7 +245,7 @@ class FileStorage(object):
             # read record
             magic = f_key.read(8)
             # check record
-            if magic == b'\x50\x0a\x6f\x70\xf2\x52\x55\xad':
+            if magic == self.KEY_MAGIC_NUMBER:
                 k_s = f_key.read(4 * 4)
                 key_size, flags, value_offset, value_size = struct.unpack('iiii', k_s)
                 key = f_key.read(key_size)
@@ -254,9 +278,10 @@ class FileStorage(object):
         load previously saved index
         """
         with open(self.filename + ".idx", 'rb') as idx:
-            magic, ver_id, rec_count, reserved = struct.unpack("iiii", idx.read(4 * 4))
-            if magic != 0x720AE06A:
+            magic = idx.read(4)
+            if magic != self.IDX_MAGIC_NUMBER:
                 raise FileNotFoundError
+            ver_id, rec_count, reserved = struct.unpack("iii", idx.read(4 * 3))
             if ver_id != 1:
                 raise FileNotFoundError
             for i in range(rec_count):
@@ -270,9 +295,9 @@ class FileStorage(object):
         """
         with open(self.filename + ".idx", 'wb') as idx:
             # write header
-            idx.write(b'\x6a\xe0\x0a\x72')
+            idx.write(self.IDX_MAGIC_NUMBER)
             idx.write(b'\x01\x00\x00\x00')
-            idx.write(struct.pack('i',self.index.ht_count))
+            idx.write(struct.pack('i', self.index.ht_count))
             idx.write(b'\x00\x00\x00\x00')
             # write body
             for i in range(self.index.ht_count):
@@ -287,15 +312,26 @@ class FileStorage(object):
 
 class FileStorageTest(TestCase):
     def setUp(self):
+        try:
+            os.unlink('test.icdb.key')
+            os.unlink('test.icdb.value')
+            os.unlink('test.icdb.idx')
+        except FileNotFoundError:
+            pass
         self.fs = FileStorage()
 
     def test_set_get(self):
         self.fs['123'] = 123
+        print("value of 123 = ", self.fs['123'])
         self.assertEqual('123', self.fs['123'])
+        self.fs['123'] = 'some'
+        print("value of 123 = ", self.fs['123'])
+        self.assertEqual('some', self.fs['123'])
         self.fs['311'] = "some text"
         self.assertEqual('some text', self.fs['311'])
 
     def test_load_index(self):
+        self.fs['123'] = 123
         self.fs.save_index()
         self.fs['111'] = '111'
         self.fs.load_index()
