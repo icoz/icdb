@@ -79,8 +79,10 @@ class FileStorage(object):
         self.index = HashCache()
         self.value_file = open(filename + '.value', 'ab')
         self.key_file = open(filename + '.key', 'ab')
-        # ADD: if there is idx-file, then load it
-        self.build_index()
+        if os.path.exists(self.filename + '.idx'):
+            self.load_index()
+        else:
+            self.build_index()
 
     def __del__(self):
         self.value_file.close()
